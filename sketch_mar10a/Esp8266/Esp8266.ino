@@ -16,8 +16,8 @@ DHT dht(DHTPIN, DHTTYPE); // Initialize DHT object
 const int LightSensorAnalogPin = A0;
 const int sensorPowerPin = 5;
 
-const char* serverAddress = "localhost";
-const int serverPort = 80;
+const char* serverAddress = "192.168.100.9";  
+const int serverPort = 8080;
 const String deviceIdentifier = "Poplava";
 
 // OLED library
@@ -44,7 +44,8 @@ void sendToReceiver(float lightIntensity, float temperature, float humidity) {
   Serial.println(jsonString);
 
   // Send the data to the server via HTTP POST request
-  String url = "http://" + String(serverAddress) + ":" + String(serverPort);
+  String url = "http://" + String(serverAddress) + ":" + String(serverPort) + "/data";
+
 
   httpClient.begin(wifiClient, url); // Reuse the existing connection
   httpClient.addHeader("Content-Type", "application/json"); // Set content type to JSON
