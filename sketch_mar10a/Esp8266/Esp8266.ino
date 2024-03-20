@@ -16,7 +16,7 @@ DHT dht(DHTPIN, DHTTYPE); // Initialize DHT object
 const int LightSensorAnalogPin = A0;
 const int sensorPowerPin = 5;
 
-const char* serverAddress = "192.168.100.9";  
+const char* serverAddress = "192.168.43.217";
 const int serverPort = 8080;
 const String deviceIdentifier = "Poplava";
 
