@@ -9,24 +9,38 @@
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
 
-#define DHTPIN 4
-#define DHTTYPE DHT22   
-DHT dht(DHTPIN, DHTTYPE); // Initialize DHT object 
+#define MUX_A 14
+#define MUX_B 12
+#define MUX_C 13
 
-const int LightSensorAnalogPin = A0;
-const int sensorPowerPin = 5;
+#define ANALOG_INPUT A0
+#define DHTTYPE DHT22
+#define DHTPIN 5
 
-const char* serverAddress = "192.168.43.217";
+DHT dht(DHTPIN, DHTTYPE); // Initialize DHT object
+
+const char* serverAddress = "192.168.43.217";  
 const int serverPort = 8080;
 const String deviceIdentifier = "Poplava";
 
-// OLED library
+float SoilMoisture1value;
+float SoilMoisture2value;
+float SoilMoisture3value;
+float LightSensorValue;
+
 U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2 (U8G2_R0, 14, 12, U8X8_PIN_NONE);
 
 WiFiClient wifiClient;
 HTTPClient httpClient;
 
-void sendToReceiver(float lightIntensity, float temperature, float humidity) {
+void changeMux(int c, int b, int a) {
+  digitalWrite(MUX_A, a);
+  digitalWrite(MUX_B, b);
+  digitalWrite(MUX_C, c);
+}
+
+void sendToReceiver(float lightIntensity,float temperature,float humidity,
+  float Sensor1Moisture,float Sensor2Moisture,float Sensor3Moisture) {
   // Create a JSON object to store the data
   StaticJsonDocument<200> jsonDocument;
 
@@ -35,6 +49,9 @@ void sendToReceiver(float lightIntensity, float temperature, float humidity) {
   jsonDocument["lightIntensity"] = lightIntensity;
   jsonDocument["temperature"] = temperature;
   jsonDocument["humidity"] = humidity;
+  jsonDocument["SensorMoisture1"] = Sensor1Moisture;
+  jsonDocument["SensorMoisture2"] = Sensor2Moisture;
+  jsonDocument["SensorMoisture3"] = Sensor3Moisture;
 
   // Convert the JSON object to a string
   String jsonString;
@@ -66,14 +83,22 @@ void sendToReceiver(float lightIntensity, float temperature, float humidity) {
   Serial.println(temperature);
   Serial.print("Humidity: ");
   Serial.println(humidity);
+  Serial.print("Sensor 1 Moisture: ");
+  Serial.println(Sensor1Moisture);
+  Serial.print("Sensor 2 Moisture: ");
+  Serial.println(Sensor2Moisture);
+  Serial.print("Sensor 3 Moisture: ");
+  Serial.println(Sensor3Moisture);
 }
 
+
 void setup() {
+  //Deifne output pins for Mux
   Serial.begin(9600);
   dht.begin();
-
-  pinMode(sensorPowerPin, OUTPUT);
-  digitalWrite(sensorPowerPin, LOW);
+  pinMode(MUX_A, OUTPUT);
+  pinMode(MUX_B, OUTPUT);     
+  pinMode(MUX_C, OUTPUT);     
 
   WiFiManager wifiManager;
   wifiManager.setTimeout(180);
@@ -87,7 +112,9 @@ void setup() {
   u8g2.begin();
 }
 
+
 void loop() {
+
   // Code to display IP address on OLED
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_7x14B_tr);
@@ -98,26 +125,42 @@ void loop() {
   u8g2.drawStr(0, 50, ipStr.c_str());
   u8g2.sendBuffer();
   
-  // Code to measure sensor data
-  int lightIntensity = analogRead(LightSensorAnalogPin);
-  float percentage = 100.0 - ((float)lightIntensity / 1023.0 * 100.0);
-  Serial.print("Light Intensity: ");
-  Serial.print(percentage);
+
+  changeMux(LOW, LOW, LOW);
+  SoilMoisture1value = analogRead(ANALOG_INPUT); 
+  Serial.print("(0 0 0)Sensor 1 Moisture:");
+  Serial.println(SoilMoisture1value);
+
+
+  changeMux(LOW, LOW, HIGH);
+  LightSensorValue = analogRead(ANALOG_INPUT);  
+  Serial.print("light sensor 0 0 1 :");
+  float lightpercentage = 100.0 - ((float)LightSensorValue / 1023.0 * 100.0);
+  Serial.print(lightpercentage);
   Serial.println("%");
+
+
 
   float temperature = dht.readTemperature();
   float humidity = dht.readHumidity();
-
-  Serial.print("Temperature: ");
+  Serial.print("Temperature:");
   Serial.print(temperature);
-  Serial.println("C");
+  Serial.print(" Humidity:");
+  Serial.println(humidity);
 
-  Serial.print("Humidity: ");
-  Serial.print(humidity);
-  Serial.println("%");
 
-  // Send data to the server
-  sendToReceiver(percentage, temperature, humidity);
+  changeMux(LOW, HIGH, HIGH);
+  SoilMoisture2value = analogRead(ANALOG_INPUT); //Value of the sensor connected Option 3 pin of Mux
+  Serial.print("(0 1 1)Sensor 2 Moisture:");
+  Serial.println(SoilMoisture2value);
 
-  delay(10000); // Adjust delay as needed
+
+  changeMux(HIGH, LOW, LOW);
+  SoilMoisture3value = analogRead(ANALOG_INPUT); //Value of the sensor connected Option 3 pin of Mux
+  Serial.print("(1 0 0)Sensor 3 Moisture:");
+  Serial.println(SoilMoisture3value);
+
+  sendToReceiver(lightpercentage,temperature,humidity,SoilMoisture1value,SoilMoisture2value,SoilMoisture3value);
+
+  delay(7000);
 }
